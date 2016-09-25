@@ -1,0 +1,24 @@
+{
+    "name": "Ashley Madison",
+    "list": [
+        {
+            "location": "NORAD",
+            "login": "root",
+            "counter": 1,
+            "template": "anoxxxxxxxxxxxxxxxxx",
+            "notes": "some random notes"
+        },
+        {
+            "location": "twitter.com",
+            "login": "@me",
+            "counter": 1,
+            "template": "LONG"
+        },
+        {
+            "location": "dropbox.com",
+            "login": "Bob",
+            "counter": 1,
+            "template": "nnnnnnnnxxxx"
+        }
+    ]
+}
