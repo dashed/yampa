@@ -196,7 +196,7 @@ struct YampaContents {
 pub fn main() {
 
     let matches = App::new("yampa")
-        .version("0.1.0 (semver.org)")
+        .version("v0.2.0 (semver.org)")
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed/yampa)")
         .about("Yet another master password app")
         .arg(Arg::with_name("file")

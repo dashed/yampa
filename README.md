@@ -12,7 +12,7 @@ Usage
 =====
 
 ```
-yampa 0.1.0 (semver.org)
+yampa v0.2.0 (semver.org)
 Alberto Leal <mailforalberto@gmail.com> (github.com/dashed/yampa)
 Yet another master password app
 
@@ -30,7 +30,6 @@ OPTIONS:
 ARGS:
     <needle>
             Filter password generation to given search `needle`. Will match against `location` and `login`.
-            
 ```
 
 ## JSON File
