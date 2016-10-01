@@ -189,6 +189,7 @@ struct YampaEntry {
 #[derive(Debug, Deserialize)]
 struct YampaContents {
     name: String,
+    master_password_signature: Option<u64>,
     list: Vec<YampaEntry>
 }
 
@@ -275,7 +276,10 @@ pub fn main() {
         if needle.is_some() && has_needle(entry, &needle) || needle.is_none() {
 
             if master_password.is_none() {
-                master_password = Some(read_password_console());
+                master_password = Some(read_password_console(
+                    pass_type.clone(),
+                    &public_key,
+                    yampa_contents.master_password_signature));
             }
 
             println!("");
@@ -502,8 +506,9 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
 
 // Lifted from: https://github.com/myfreeweb/freepass/blob/e83ac7718d2a7718b3c79f5d52cd463e3c391ea0/cli/src/util.rs#L22-L43
 #[inline]
-fn read_password_console() -> secstr::SecStr {
-    secstr::SecStr::new(interactor::read_from_tty(|buf, b, tty| {
+fn read_password_console(pass_type: MasterKeyGen, public_key: &String, master_password_signature: Option<u64>) -> secstr::SecStr {
+
+    let master_password = secstr::SecStr::new(interactor::read_from_tty(|buf, b, tty| {
         if b == 4 {
             tty.write(b"\r                                       \r").unwrap();
             return;
@@ -528,7 +533,51 @@ fn read_password_console() -> secstr::SecStr {
                 ])).into_bytes()
         };
         tty.write(&color_string).unwrap();
-    }, true, true).unwrap())
+    }, true, true).unwrap());
+
+    println!("");
+
+    {
+        let location = "master_password".to_string();
+        let login = "master_password".to_string();
+        let counter = 1;
+
+        let master_key = gen_master_key(pass_type.clone(), &master_password, public_key);
+        let template_seed = gen_template_seed(pass_type, master_key, &location, &login, counter);
+        let template = pick_template(template_seed.as_ref(), &vec!["nnnnnn".to_string()]);
+        let signature_str = gen_password(template_seed.as_ref(), template.clone());
+
+        let expected_signature: u64 = signature_str.parse::<u64>().unwrap();
+
+        match master_password_signature {
+            None => {
+                println!("{:>11}", "Master");
+                println!("{:>11}", "password");
+                println!("{:>11} {}", "signature:", signature_str);
+                println!("");
+                println!("NOTE: No master password signature found in JSON file.");
+            },
+            Some(actual_signature) => {
+
+                let validity = if expected_signature == actual_signature {
+                    "valid"
+                } else {
+                    "invalid"
+                };
+
+                println!("{:>11}", "Master");
+                println!("{:>11}", "password");
+                println!("{:>11} {} ({})",
+                    "signature:",
+                    signature_str,
+                    validity
+                );
+            }
+        }
+
+    };
+
+    return master_password;
 }
 
 // Hashes given bytes and encodes the result as ANSI terminal colors.
