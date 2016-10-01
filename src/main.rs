@@ -18,6 +18,7 @@ use std::io::{Write, Read};
 use std::path::Path;
 use std::fs::File;
 use std::error::Error;
+use std::ascii::AsciiExt;
 
 use serde::de::{self, Deserialize, Deserializer};
 
@@ -251,7 +252,7 @@ pub fn main() {
     println!("{:>11} {}", "Name:", public_key);
 
     let needle = match matches.value_of("needle") {
-        Some(needle) => Some(needle.to_string()),
+        Some(needle) => Some(needle.to_string().to_ascii_lowercase()),
         None => None
     };
 
@@ -301,7 +302,8 @@ fn has_needle(entry: &YampaEntry, needle: &Option<String>) -> bool {
     let should_output = match *needle {
         None => true,
         Some(ref needle) => {
-            needle == location || needle == login
+            location.to_ascii_lowercase().contains(needle) ||
+            login.to_ascii_lowercase().contains(needle)
         }
     };
 
