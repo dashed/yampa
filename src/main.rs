@@ -549,29 +549,24 @@ fn read_password_console(pass_type: MasterKeyGen, public_key: &String, master_pa
 
         let expected_signature: u64 = signature_str.parse::<u64>().unwrap();
 
+        println!("{:>10}", "Master");
+        println!("{:>10}", "password");
+        println!("{:>11} {}", "signature:", signature_str);
+        println!("");
+
         match master_password_signature {
             None => {
-                println!("{:>11}", "Master");
-                println!("{:>11}", "password");
-                println!("{:>11} {}", "signature:", signature_str);
-                println!("");
                 println!("NOTE: No master password signature found in JSON file.");
             },
             Some(actual_signature) => {
 
                 let validity = if expected_signature == actual_signature {
-                    "valid"
+                    "VALID"
                 } else {
-                    "invalid"
+                    "INVALID"
                 };
 
-                println!("{:>11}", "Master");
-                println!("{:>11}", "password");
-                println!("{:>11} {} ({})",
-                    "signature:",
-                    signature_str,
-                    validity
-                );
+                println!("{:>11} {}", "Is valid:", validity);
             }
         }
 
