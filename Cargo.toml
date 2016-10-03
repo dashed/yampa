@@ -1,6 +1,6 @@
 [package]
 name = "yampa"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Alberto Leal <mailforalberto@gmail.com>"]
 
 [dependencies]
@@ -16,6 +16,7 @@ interactor = "0.1.1"
 ansi_term = "0.9.0"
 clap = "2.13.0"
 lazy_static = "0.2.1"
+version = "2"
 
 [dev-dependencies]
 rusterpassword = "0.2.0"

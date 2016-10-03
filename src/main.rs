@@ -12,6 +12,8 @@ extern crate ansi_term;
 extern crate clap;
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate version;
 
 
 use std::io::{Write, Read};
@@ -195,8 +197,10 @@ struct YampaContents {
 
 pub fn main() {
 
+    let version: &str = &format!("v{} (semver.org 2.0)", version!());
+
     let matches = App::new("yampa")
-        .version("v0.2.0 (semver.org)")
+        .version(version)
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed/yampa)")
         .about("Yet another master password app")
         .arg(Arg::with_name("file")
