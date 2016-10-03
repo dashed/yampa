@@ -281,7 +281,6 @@ pub fn main() {
 
             if master_password.is_none() {
                 master_password = Some(read_password_console(
-                    pass_type.clone(),
                     &public_key,
                     yampa_contents.master_password_signature));
             }
@@ -510,7 +509,7 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
 
 // Lifted from: https://github.com/myfreeweb/freepass/blob/e83ac7718d2a7718b3c79f5d52cd463e3c391ea0/cli/src/util.rs#L22-L43
 #[inline]
-fn read_password_console(pass_type: MasterKeyGen, public_key: &String, master_password_signature: Option<u64>) -> secstr::SecStr {
+fn read_password_console(public_key: &String, master_password_signature: Option<u64>) -> secstr::SecStr {
 
     let master_password = secstr::SecStr::new(interactor::read_from_tty(|buf, b, tty| {
         if b == 4 {
@@ -546,8 +545,8 @@ fn read_password_console(pass_type: MasterKeyGen, public_key: &String, master_pa
         let login = "master_password".to_string();
         let counter = 1;
 
-        let master_key = gen_master_key(pass_type.clone(), &master_password, public_key);
-        let template_seed = gen_template_seed(pass_type, master_key, &location, &login, counter);
+        let master_key = gen_master_key(MasterKeyGen::Argon2i, &master_password, public_key);
+        let template_seed = gen_template_seed(MasterKeyGen::Argon2i, master_key, &location, &login, counter);
         let template = pick_template(template_seed.as_ref(), &vec!["nnnnnn".to_string()]);
         let signature_str = gen_password(template_seed.as_ref(), template.clone());
 
