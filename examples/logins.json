@@ -1,11 +1,12 @@
 {
     "name": "Ashley Madison",
+    "master_password_signature": 837343,
     "list": [
         {
             "location": "NORAD",
             "login": "root",
             "counter": 1,
-            "template": "anoxxxxxxxxxxxxxxxxx",
+            "template": ["anoxxxxxxxxxxxxxxxxx", "anoooooxxxxxxxxxxxxxxxxxaa"],
             "notes": "some random notes"
         },
         {

@@ -4,28 +4,26 @@ extern crate serde;
 extern crate serde_json;
 extern crate argon2rs;
 extern crate ring;
-extern crate crypto;
+extern crate ring_pwhash;
 extern crate byteorder;
 extern crate secstr;
-extern crate interactor;
-extern crate ansi_term;
 extern crate clap;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate version;
+extern crate termion;
 
 
-use std::io::{Write, Read};
+use std::io::{Read};
 use std::path::Path;
 use std::fs::File;
 use std::error::Error;
 use std::ascii::AsciiExt;
 
+use termion::input::TermRead;
 use serde::de::{self, Deserialize, Deserializer};
-
 use clap::{Arg, App};
-
 use byteorder::{BigEndian, WriteBytesExt};
 
 const SALT_PREFIX : &'static str = "com.lyndir.masterpassword";
@@ -285,6 +283,7 @@ pub fn main() {
                     yampa_contents.master_password_signature));
             }
 
+
             println!("");
 
             match master_password {
@@ -406,10 +405,10 @@ fn gen_master_key(pass_type: MasterKeyGen, master_password: &secstr::SecStr, pub
 
             let mut output = [0u8; 64];
 
-            crypto::scrypt::scrypt(
+            ring_pwhash::scrypt::scrypt(
                 master_password.unsecure(),
                 salt.as_slice(),
-                &crypto::scrypt::ScryptParams::new(log_n, r, p),
+                &ring_pwhash::scrypt::ScryptParams::new(log_n, r, p),
                 &mut output
             );
 
@@ -507,37 +506,29 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
     String::from_utf8_lossy(result.as_slice()).into_owned()
 }
 
-// Lifted from: https://github.com/myfreeweb/freepass/blob/e83ac7718d2a7718b3c79f5d52cd463e3c391ea0/cli/src/util.rs#L22-L43
+// Lifted from: https://github.com/ticki/termion/blob/f21a5ceeed9d4c62a7556cdf268a9cd71b4c6157/examples/read.rs
 #[inline]
 fn read_password_console(public_key: &String, master_password_signature: Option<u64>) -> secstr::SecStr {
 
-    let master_password = secstr::SecStr::new(interactor::read_from_tty(|buf, b, tty| {
-        if b == 4 {
-            tty.write(b"\r                                       \r").unwrap();
-            return;
-        }
-        let color_string = if buf.len() <= 0 {
-            // Make it a bit harder to recover the password by e.g. someone filming how you're entering your password
-            // Although if you're entering your password on camera, you're kinda screwed anyway
+    use std::io::{Write, stdin, stdout};
 
-            b"\rEnter master password: <start typing>".to_vec()
-        } else {
-            let colors = hash_as_ansi(buf);
-            format!("\rEnter master password: {}",
-                ansi_term::ANSIStrings(&[
-                    ansi_term::Colour::Fixed(colors[0] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[1] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[2] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[3] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[4] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[5] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[6] as u8).paint("**"),
-                    ansi_term::Colour::Fixed(colors[7] as u8).paint("**"),
-                ])).into_bytes()
-        };
-        tty.write(&color_string).unwrap();
-    }, true, true).unwrap());
+    let stdout = stdout();
+    let mut stdout = stdout.lock();
+    let stdin = stdin();
+    let mut stdin = stdin.lock();
 
+    stdout.write(b"Enter master password: ").unwrap();
+    stdout.flush().unwrap();
+
+    let pass = stdin.read_passwd(&mut stdout);
+
+    let master_password = if let Ok(Some(pass)) = pass {
+        secstr::SecStr::new(pass.into())
+    } else {
+        secstr::SecStr::new(vec![])
+    };
+
+    println!("");
     println!("");
 
     {
@@ -576,28 +567,8 @@ fn read_password_console(public_key: &String, master_password_signature: Option<
     };
 
     return master_password;
+
 }
-
-// Hashes given bytes and encodes the result as ANSI terminal colors.
-#[inline]
-fn hash_as_ansi(bytes: &[u8]) -> [u16; 8] {
-
-    use crypto::digest::Digest;
-
-    let mut sh = Box::new(crypto::sha2::Sha256::new());
-
-    sh.input(bytes);
-
-    let hash = sh.result_str();
-    let hash = hash.as_bytes();
-
-    let mut colors: [u16; 8] = [0; 8];
-    for i in 0..8 {
-        colors[i] = 16 + (hash[i] as u16 % 216);
-    }
-    colors
-}
-
 
 #[cfg(test)]
 mod tests {
