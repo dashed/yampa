@@ -6,7 +6,14 @@ yampa
 Install
 =======
 
-*TBA.*
+Download binaries from: https://github.com/dashed/yampa/releases
+
+## From source
+
+- Install nightly rust. (e.g. set via https://www.rustup.rs/)
+- `git clone git@github.com:dashed/yampa.git`
+- `cargo build --release`
+- `cp target/release/yampa /usr/local/bin` (or similar)
 
 Usage
 =====
