@@ -538,7 +538,7 @@ fn read_password_console(public_key: &String, master_password_signature: Option<
 
         let master_key = gen_master_key(MasterKeyGen::Argon2i, &master_password, public_key);
         let template_seed = gen_template_seed(MasterKeyGen::Argon2i, master_key, &location, &login, counter);
-        let template = pick_template(template_seed.as_ref(), &vec!["nnnnnn".to_string()]);
+        let template = pick_template(template_seed.as_ref(), &vec!["nnn".to_string()]);
         let signature_str = gen_password(template_seed.as_ref(), template.clone());
 
         let expected_signature: u64 = signature_str.parse::<u64>().unwrap();
