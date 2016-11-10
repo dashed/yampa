@@ -13,6 +13,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate version;
 extern crate termion;
+extern crate colored;
 
 
 use std::io::{Read};
@@ -25,6 +26,7 @@ use termion::input::TermRead;
 use serde::de::{self, Deserialize, Deserializer};
 use clap::{Arg, App};
 use byteorder::{BigEndian, WriteBytesExt};
+use colored::*;
 
 const SALT_PREFIX : &'static str = "com.lyndir.masterpassword";
 
@@ -202,11 +204,10 @@ pub fn main() {
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed/yampa)")
         .about("Yet another master password app")
         .arg(Arg::with_name("file")
-           .short("f")
-           .long("file")
            .help("Input JSON file")
            .required(false)
            .takes_value(true)
+           .index(1)
         )
         .arg(Arg::with_name("classic")
            .short("c")
@@ -251,15 +252,10 @@ pub fn main() {
         }
     };
 
-    let public_key = yampa_contents.name;
-    println!("{:>11} {}", "Name:", public_key);
-
     let needle = match matches.value_of("needle") {
         Some(needle) => Some(needle.to_string().to_ascii_lowercase()),
         None => None
     };
-
-    let mut master_password = None;
 
     if yampa_contents.list.len() <= 0 {
         println!("There are no entries to generate passwords for.");
@@ -273,14 +269,24 @@ pub fn main() {
         MasterKeyGen::Argon2i
     };
 
+    let mut master_password = None;
+    let public_key = yampa_contents.name;
+
     for entry in yampa_contents.list.iter() {
 
         if needle.is_some() && has_needle(entry, &needle) || needle.is_none() {
 
             if master_password.is_none() {
+
+                // invariant: There is an entry to generate a password.
+
                 master_password = Some(read_password_console(
                     &public_key,
                     yampa_contents.master_password_signature));
+
+                println!("");
+                println!("{:>11} {}", "Name:", public_key);
+
             }
 
 
@@ -555,9 +561,9 @@ fn read_password_console(public_key: &String, master_password_signature: Option<
             Some(actual_signature) => {
 
                 let validity = if expected_signature == actual_signature {
-                    "VALID"
+                    "VALID".green()
                 } else {
-                    "INVALID"
+                    "INVALID".red()
                 };
 
                 println!("{:>11} {}", "Is valid:", validity);
