@@ -1,5 +1,5 @@
-#![feature(custom_derive, plugin)]
-#![plugin(serde_macros)]
+#[macro_use]
+extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 extern crate argon2rs;
@@ -15,12 +15,16 @@ extern crate version;
 extern crate termion;
 extern crate colored;
 
+// rust imports
 
 use std::io::Read;
 use std::path::Path;
 use std::fs::File;
 use std::error::Error;
 use std::ascii::AsciiExt;
+use std::process;
+
+// 3rd-party imports
 
 use termion::input::TermRead;
 use serde::de::{self, Deserialize, Deserializer};
@@ -95,6 +99,13 @@ macro_rules! template {
     }}
 }
 
+macro_rules! exit {
+    ($code:expr, $($arg:tt)*) => {{
+        println!($($arg)*);
+        process::exit($code);
+    }}
+}
+
 type Counter = u64;
 
 #[derive(Clone)]
@@ -116,15 +127,21 @@ struct TemplateJSONVisitor;
 impl de::Visitor for TemplateJSONVisitor {
     type Value = TemplateJSON;
 
-    fn visit_str<E>(&mut self, input: &str) -> Result<Self::Value, E>
+    fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(formatter, "a template or template alias.")
+    }
+
+    fn visit_str<E>(self, input: &str) -> Result<Self::Value, E>
         where E: de::Error
     {
         return self.visit_string(input.to_string());
     }
 
-    fn visit_string<E>(&mut self, input: String) -> Result<Self::Value, E>
+    fn visit_string<E>(self, input: String) -> Result<Self::Value, E>
         where E: de::Error
     {
+
+        // template aliases
 
         match input.as_ref() {
             "MAXIMUM" | "MAX" => {
@@ -152,7 +169,7 @@ impl de::Visitor for TemplateJSONVisitor {
 
     }
 
-    fn visit_seq<V>(&mut self, mut visitor: V) -> Result<Self::Value, V::Error>
+    fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
         where V: de::SeqVisitor
     {
 
@@ -162,8 +179,6 @@ impl de::Visitor for TemplateJSONVisitor {
             list.push(value);
         }
 
-        try!(visitor.end());
-
         Ok(TemplateJSON::Multiple(list))
 
     }
@@ -171,7 +186,7 @@ impl de::Visitor for TemplateJSONVisitor {
 
 
 impl Deserialize for TemplateJSON {
-    fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where D: Deserializer
     {
 
@@ -190,8 +205,11 @@ struct YampaEntry {
 
 #[derive(Debug, Deserialize)]
 struct YampaContents {
+    // required
     name: String,
+
     master_password_signature: Option<u64>,
+
     list: Vec<YampaEntry>,
 }
 
@@ -219,25 +237,28 @@ pub fn main() {
             .next_line_help(true)
             .help("Filter password generation to given search `needle`. Will match against \
                    `location` and `login`.")
-            .required(false)
+            .required(true)
             .multiple(false))
         .get_matches();
 
     let file_path = matches.value_of("file").unwrap_or("yampa.json");
 
     let path = Path::new(file_path);
-    let display = path.display();
+    let file_name = path.display();
+
+    // TODO: use these as alternatives
+    // let possible_files = vec!["logins.json", "login.json"];
 
     let mut file = match File::open(&path) {
         // The `description` method of `io::Error` returns a string that
         // describes the error
-        Err(why) => panic!("couldn't open {}: {}", display, why.description()),
+        Err(why) => exit!(1, "couldn't open {}: {}", file_name, why.description()),
         Ok(file) => file,
     };
 
     let mut yampa_contents = String::new();
     match file.read_to_string(&mut yampa_contents) {
-        Err(why) => panic!("couldn't read {}: {}", display, why.description()),
+        Err(why) => exit!(1, "couldn't read {}: {}", file_name, why.description()),
         Ok(_) => {}
     }
     let yampa_contents = yampa_contents;
@@ -245,19 +266,27 @@ pub fn main() {
     let yampa_contents: YampaContents = match serde_json::from_str(&yampa_contents) {
         Ok(yampa_contents) => yampa_contents,
         Err(_) => {
-            panic!("invalid JSON from: {}", display);
+            exit!(1, "invalid JSON from: {}", file_name);
         }
     };
 
-    let needle = match matches.value_of("needle") {
-        Some(needle) => Some(needle.to_string().to_ascii_lowercase()),
-        None => None,
+    let needle: String = match matches.value_of("needle") {
+        Some(needle) => {
+            let needle = needle.to_string().trim().to_ascii_lowercase();
+
+            if needle.len() <= 0 {
+                exit!(1, "Needle required.");
+            }
+
+            needle
+        }
+        None => exit!(1, "Needle required."),
     };
 
     if yampa_contents.list.len() <= 0 {
-        println!("There are no entries to generate passwords for.");
-
-        return;
+        exit!(0,
+              "There are no entries to generate passwords for: {}",
+              file_name);
     }
 
     let pass_type = if matches.is_present("classic") {
@@ -271,15 +300,18 @@ pub fn main() {
 
     for entry in yampa_contents.list.iter() {
 
-        if needle.is_some() && has_needle(entry, &needle) || needle.is_none() {
+        if has_needle(entry, &needle) {
 
             if master_password.is_none() {
 
                 // invariant: There is an entry to generate a password.
 
                 master_password =
-                    Some(read_password_console(&public_key,
-                                               yampa_contents.master_password_signature));
+                    match read_password_console(&public_key,
+                                                yampa_contents.master_password_signature) {
+                        MasterPassword::Valid(master_password) => Some(master_password),
+                        _ => exit!(1, "Invalid master password."),
+                    };
 
                 println!("");
                 println!("{:>11} {}", "Name:", public_key);
@@ -303,20 +335,12 @@ pub fn main() {
 }
 
 #[inline]
-fn has_needle(entry: &YampaEntry, needle: &Option<String>) -> bool {
+fn has_needle(entry: &YampaEntry, needle: &String) -> bool {
 
     let ref location = entry.location;
     let ref login = entry.login;
 
-    let should_output = match *needle {
-        None => true,
-        Some(ref needle) => {
-            location.to_ascii_lowercase().contains(needle) ||
-            login.to_ascii_lowercase().contains(needle)
-        }
-    };
-
-    should_output
+    location.to_ascii_lowercase().contains(needle) || login.to_ascii_lowercase().contains(needle)
 
 }
 
@@ -495,7 +519,7 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
                 'o' => template!(TEMPLATE_O, seed_idx),
                 'X' | 'x' => template!(TEMPLATE_X, seed_idx),
                 _ => {
-                    panic!("Invalid template: {}", template);
+                    exit!(1, "Invalid template: {}", template);
                 }
             }
 
@@ -506,11 +530,17 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
     String::from_utf8_lossy(result.as_slice()).into_owned()
 }
 
+enum MasterPassword {
+    Valid(secstr::SecStr),
+    Invalid(secstr::SecStr),
+    Unverified(secstr::SecStr),
+}
+
 // Lifted from: https://github.com/ticki/termion/blob/f21a5ceeed9d4c62a7556cdf268a9cd71b4c6157/examples/read.rs
 #[inline]
 fn read_password_console(public_key: &String,
                          master_password_signature: Option<u64>)
-                         -> secstr::SecStr {
+                         -> MasterPassword {
 
     use std::io::{Write, stdin, stdout};
 
@@ -524,7 +554,7 @@ fn read_password_console(public_key: &String,
 
     let pass = stdin.read_passwd(&mut stdout);
 
-    let master_password = if let Ok(Some(pass)) = pass {
+    let master_password_input = if let Ok(Some(pass)) = pass {
         secstr::SecStr::new(pass.into())
     } else {
         secstr::SecStr::new(vec![])
@@ -533,12 +563,12 @@ fn read_password_console(public_key: &String,
     println!("");
     println!("");
 
-    {
+    let master_password = {
         let location = "master_password".to_string();
         let login = "master_password".to_string();
         let counter = 1;
 
-        let master_key = gen_master_key(MasterKeyGen::Argon2i, &master_password, public_key);
+        let master_key = gen_master_key(MasterKeyGen::Argon2i, &master_password_input, public_key);
         let template_seed = gen_template_seed(MasterKeyGen::Argon2i,
                                               master_key,
                                               &location,
@@ -557,16 +587,26 @@ fn read_password_console(public_key: &String,
         match master_password_signature {
             None => {
                 println!("NOTE: No master password signature found in JSON file.");
+                MasterPassword::Unverified(master_password_input)
             }
             Some(actual_signature) => {
 
-                let validity = if expected_signature == actual_signature {
+                let is_valid = expected_signature == actual_signature;
+
+                let validity = if is_valid {
                     "VALID".green()
                 } else {
                     "INVALID".red()
                 };
 
                 println!("{:>11} {}", "Is valid:", validity);
+
+                if is_valid {
+                    MasterPassword::Valid(master_password_input)
+                } else {
+                    MasterPassword::Invalid(master_password_input)
+                }
+
             }
         }
 
