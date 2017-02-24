@@ -16,7 +16,7 @@ extern crate termion;
 extern crate colored;
 
 
-use std::io::{Read};
+use std::io::Read;
 use std::path::Path;
 use std::fs::File;
 use std::error::Error;
@@ -28,7 +28,7 @@ use clap::{Arg, App};
 use byteorder::{BigEndian, WriteBytesExt};
 use colored::*;
 
-const SALT_PREFIX : &'static str = "com.lyndir.masterpassword";
+const SALT_PREFIX: &'static str = "com.lyndir.masterpassword";
 
 lazy_static! {
     static ref TEMPLATES_MAXIMUM: Vec<String> = vec![
@@ -69,23 +69,24 @@ lazy_static! {
 
 
 // V
-const TEMPLATE_V_UPPER : &'static [u8; 5] = b"AEIOU";
+const TEMPLATE_V_UPPER: &'static [u8; 5] = b"AEIOU";
 // v
-const TEMPLATE_V_LOWER : &'static [u8; 5] = b"aeiou";
+const TEMPLATE_V_LOWER: &'static [u8; 5] = b"aeiou";
 // C
-const TEMPLATE_C_UPPER : &'static [u8; 21] = b"BCDFGHJKLMNPQRSTVWXYZ";
+const TEMPLATE_C_UPPER: &'static [u8; 21] = b"BCDFGHJKLMNPQRSTVWXYZ";
 // c
-const TEMPLATE_C_LOWER : &'static [u8; 21] = b"bcdfghjklmnpqrstvwxyz";
+const TEMPLATE_C_LOWER: &'static [u8; 21] = b"bcdfghjklmnpqrstvwxyz";
 // A
-const TEMPLATE_A_UPPER : &'static [u8; 26] = b"AEIOUBCDFGHJKLMNPQRSTVWXYZ";
+const TEMPLATE_A_UPPER: &'static [u8; 26] = b"AEIOUBCDFGHJKLMNPQRSTVWXYZ";
 // a
-const TEMPLATE_A_UPPER_LOWER : &'static [u8; 52] = b"AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz";
+const TEMPLATE_A_UPPER_LOWER: &'static [u8; 52] =
+    b"AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz";
 // n (numeric)
-const TEMPLATE_N : &'static [u8; 10] = b"0123456789";
+const TEMPLATE_N: &'static [u8; 10] = b"0123456789";
 // o (other)
-const TEMPLATE_O : &'static [u8; 24] = b"@&%?,=[]_:-+*$#!'^~;()/.";
+const TEMPLATE_O: &'static [u8; 24] = b"@&%?,=[]_:-+*$#!'^~;()/.";
 // X
-const TEMPLATE_X : &'static [u8; 72] =
+const TEMPLATE_X: &'static [u8; 72] =
     b"AEIOUaeiouBCDFGHJKLMNPQRSTVWXYZbcdfghjklmnpqrstvwxyz0123456789!@#$%^&*()";
 
 macro_rules! template {
@@ -98,23 +99,21 @@ type Counter = u64;
 
 #[derive(Clone)]
 enum MasterKeyGen {
-
     // scrypt version that is compatible with http://masterpasswordapp.com/algorithm.html
     Classic,
 
-    Argon2i
+    Argon2i,
 }
 
 #[derive(Debug)]
 enum TemplateJSON {
     Multiple(Vec<String>),
-    Single(String)
+    Single(String),
 }
 
 struct TemplateJSONVisitor;
 
 impl de::Visitor for TemplateJSONVisitor {
-
     type Value = TemplateJSON;
 
     fn visit_str<E>(&mut self, input: &str) -> Result<Self::Value, E>
@@ -130,22 +129,22 @@ impl de::Visitor for TemplateJSONVisitor {
         match input.as_ref() {
             "MAXIMUM" | "MAX" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_MAXIMUM.clone()));
-            },
+            }
             "LONG" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_LONG.clone()));
-            },
+            }
             "MEDIUM" | "MED" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_MEDIUM.clone()));
-            },
+            }
             "SHORT" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_SHORT.clone()));
-            },
+            }
             "BASIC" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_BASIC.clone()));
-            },
+            }
             "PIN" => {
                 return Ok(TemplateJSON::Multiple(TEMPLATES_PIN.clone()));
-            },
+            }
             _ => {
                 return Ok(TemplateJSON::Single(input));
             }
@@ -154,7 +153,8 @@ impl de::Visitor for TemplateJSONVisitor {
     }
 
     fn visit_seq<V>(&mut self, mut visitor: V) -> Result<Self::Value, V::Error>
-        where V: de::SeqVisitor {
+        where V: de::SeqVisitor
+    {
 
         let mut list = vec![];
 
@@ -171,9 +171,9 @@ impl de::Visitor for TemplateJSONVisitor {
 
 
 impl Deserialize for TemplateJSON {
-
     fn deserialize<D>(deserializer: &mut D) -> Result<Self, D::Error>
-        where D: Deserializer {
+        where D: Deserializer
+    {
 
         deserializer.deserialize(TemplateJSONVisitor)
     }
@@ -185,14 +185,14 @@ struct YampaEntry {
     location: String,
     login: String,
     counter: Option<Counter>,
-    template: Option<TemplateJSON>
+    template: Option<TemplateJSON>,
 }
 
 #[derive(Debug, Deserialize)]
 struct YampaContents {
     name: String,
     master_password_signature: Option<u64>,
-    list: Vec<YampaEntry>
+    list: Vec<YampaEntry>,
 }
 
 pub fn main() {
@@ -204,26 +204,24 @@ pub fn main() {
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed/yampa)")
         .about("Yet another master password app")
         .arg(Arg::with_name("file")
-           .help("Input JSON file")
-           .short("f")
-           .long("file")
-           .required(false)
-           .takes_value(true)
-        )
-        .arg(Arg::with_name("classic")
-           .short("c")
-           .long("classic")
-           .help("Classic master password app mode.")
-           .required(false)
-           .takes_value(false)
-        )
-        .arg(
-            Arg::with_name("needle")
-            .next_line_help(true)
-            .help("Filter password generation to given search `needle`. Will match against `location` and `login`.")
+            .help("Input JSON file")
+            .short("f")
+            .long("file")
             .required(false)
-            .multiple(false)
-        ).get_matches();
+            .takes_value(true))
+        .arg(Arg::with_name("classic")
+            .short("c")
+            .long("classic")
+            .help("Classic master password app mode.")
+            .required(false)
+            .takes_value(false))
+        .arg(Arg::with_name("needle")
+            .next_line_help(true)
+            .help("Filter password generation to given search `needle`. Will match against \
+                   `location` and `login`.")
+            .required(false)
+            .multiple(false))
+        .get_matches();
 
     let file_path = matches.value_of("file").unwrap_or("yampa.json");
 
@@ -233,16 +231,14 @@ pub fn main() {
     let mut file = match File::open(&path) {
         // The `description` method of `io::Error` returns a string that
         // describes the error
-        Err(why) => panic!("couldn't open {}: {}", display,
-                                                   why.description()),
+        Err(why) => panic!("couldn't open {}: {}", display, why.description()),
         Ok(file) => file,
     };
 
     let mut yampa_contents = String::new();
     match file.read_to_string(&mut yampa_contents) {
-        Err(why) => panic!("couldn't read {}: {}", display,
-                                                   why.description()),
-        Ok(_) => {},
+        Err(why) => panic!("couldn't read {}: {}", display, why.description()),
+        Ok(_) => {}
     }
     let yampa_contents = yampa_contents;
 
@@ -255,7 +251,7 @@ pub fn main() {
 
     let needle = match matches.value_of("needle") {
         Some(needle) => Some(needle.to_string().to_ascii_lowercase()),
-        None => None
+        None => None,
     };
 
     if yampa_contents.list.len() <= 0 {
@@ -281,9 +277,9 @@ pub fn main() {
 
                 // invariant: There is an entry to generate a password.
 
-                master_password = Some(read_password_console(
-                    &public_key,
-                    yampa_contents.master_password_signature));
+                master_password =
+                    Some(read_password_console(&public_key,
+                                               yampa_contents.master_password_signature));
 
                 println!("");
                 println!("{:>11} {}", "Name:", public_key);
@@ -296,7 +292,7 @@ pub fn main() {
             match master_password {
                 Some(ref master_password) => {
                     output_entry(pass_type.clone(), entry, &public_key, master_password);
-                },
+                }
                 _ => {}
             }
 
@@ -325,17 +321,16 @@ fn has_needle(entry: &YampaEntry, needle: &Option<String>) -> bool {
 }
 
 #[inline]
-fn output_entry(pass_type: MasterKeyGen, entry: &YampaEntry, public_key: &String, master_password: &secstr::SecStr) {
+fn output_entry(pass_type: MasterKeyGen,
+                entry: &YampaEntry,
+                public_key: &String,
+                master_password: &secstr::SecStr) {
 
     let ref location = entry.location;
     let ref login = entry.login;
     let counter = entry.counter.unwrap_or(1);
 
-    let counter = if counter <= 0 {
-        1
-    } else {
-        counter
-    };
+    let counter = if counter <= 0 { 1 } else { counter };
 
     // Based on: http://masterpasswordapp.com/algorithm.html
 
@@ -352,15 +347,11 @@ fn output_entry(pass_type: MasterKeyGen, entry: &YampaEntry, public_key: &String
     let templates = match *(&entry.template) {
         Some(ref template) => {
             match *template {
-                TemplateJSON::Single(ref template) => {
-                    vec![template.clone()]
-                },
-                TemplateJSON::Multiple(ref list) => {
-                    list.clone()
-                }
+                TemplateJSON::Single(ref template) => vec![template.clone()],
+                TemplateJSON::Multiple(ref list) => list.clone(),
             }
-        },
-        None => TEMPLATES_LONG.clone()
+        }
+        None => TEMPLATES_LONG.clone(),
     };
 
     let template = pick_template(template_seed.as_ref(), &templates);
@@ -376,27 +367,31 @@ fn output_entry(pass_type: MasterKeyGen, entry: &YampaEntry, public_key: &String
 }
 
 #[inline]
-fn gen_master_key(pass_type: MasterKeyGen, master_password: &secstr::SecStr, public_key: &String) -> Vec<u8> {
+fn gen_master_key(pass_type: MasterKeyGen,
+                  master_password: &secstr::SecStr,
+                  public_key: &String)
+                  -> Vec<u8> {
 
     match pass_type {
         MasterKeyGen::Argon2i => {
 
             let salt = format!("{salt_prefix}{public_key_len}{public_key}",
-                salt_prefix = SALT_PREFIX,
-                public_key_len = public_key.len(),
-                public_key = public_key);
+                               salt_prefix = SALT_PREFIX,
+                               public_key_len = public_key.len(),
+                               public_key = public_key);
 
             let mut master_key: Vec<u8> = Vec::new();
 
-            for byte in argon2rs::argon2i_simple(
-                &String::from_utf8_lossy(master_password.unsecure()),
-                &salt).iter() {
+            for byte in
+                argon2rs::argon2i_simple(&String::from_utf8_lossy(master_password.unsecure()),
+                                         &salt)
+                    .iter() {
                 master_key.push(*byte);
             }
 
             return master_key;
 
-        },
+        }
         MasterKeyGen::Classic => {
 
             // Compatibility with scheme as described at: http://masterpasswordapp.com/algorithm.html
@@ -412,12 +407,10 @@ fn gen_master_key(pass_type: MasterKeyGen, master_password: &secstr::SecStr, pub
 
             let mut output = [0u8; 64];
 
-            ring_pwhash::scrypt::scrypt(
-                master_password.unsecure(),
-                salt.as_slice(),
-                &ring_pwhash::scrypt::ScryptParams::new(log_n, r, p),
-                &mut output
-            );
+            ring_pwhash::scrypt::scrypt(master_password.unsecure(),
+                                        salt.as_slice(),
+                                        &ring_pwhash::scrypt::ScryptParams::new(log_n, r, p),
+                                        &mut output);
 
             let mut master_key: Vec<u8> = vec![];
 
@@ -431,31 +424,29 @@ fn gen_master_key(pass_type: MasterKeyGen, master_password: &secstr::SecStr, pub
 }
 
 #[inline]
-fn gen_template_seed(
-    pass_type: MasterKeyGen,
-    master_key: Vec<u8>,
-    location: &String,
-    login: &String,
-    counter: Counter) -> ring::digest::Digest {
+fn gen_template_seed(pass_type: MasterKeyGen,
+                     master_key: Vec<u8>,
+                     location: &String,
+                     login: &String,
+                     counter: Counter)
+                     -> ring::digest::Digest {
 
-    let source = format!("{location}{login}",
-        location = location,
-        login = login);
+    let source = format!("{location}{login}", location = location, login = login);
 
     let s_key = ring::hmac::SigningKey::new(&ring::digest::SHA256, master_key.as_slice());
 
     match pass_type {
         MasterKeyGen::Argon2i => {
             let hmac_input = format!("{salt_prefix}{source_len}{source}{counter}",
-                salt_prefix = SALT_PREFIX,
-                source_len = source.len(),
-                source = source,
-                counter = counter);
+                                     salt_prefix = SALT_PREFIX,
+                                     source_len = source.len(),
+                                     source = source,
+                                     counter = counter);
 
             let template_seed = ring::hmac::sign(&s_key, hmac_input.as_bytes());
 
             return template_seed;
-        },
+        }
         MasterKeyGen::Classic => {
 
             let mut hmac_input = vec![];
@@ -486,28 +477,30 @@ fn pick_template(raw_seed: &[u8], templates: &Vec<String>) -> String {
 fn gen_password(raw_seed: &[u8], template: String) -> String {
 
     let mut idx = 0;
-    let result = template.chars().map(|x| {
+    let result = template.chars()
+        .map(|x| {
 
-        idx += 1;
+            idx += 1;
 
-        let seed_idx = raw_seed[idx] as usize;
+            let seed_idx = raw_seed[idx] as usize;
 
-        match x {
-            'V' => template!(TEMPLATE_V_UPPER, seed_idx),
-            'C' => template!(TEMPLATE_C_UPPER, seed_idx),
-            'v' => template!(TEMPLATE_V_LOWER, seed_idx),
-            'c' => template!(TEMPLATE_C_LOWER, seed_idx),
-            'A' => template!(TEMPLATE_A_UPPER, seed_idx),
-            'a' => template!(TEMPLATE_A_UPPER_LOWER, seed_idx),
-            'n' => template!(TEMPLATE_N, seed_idx),
-            'o' => template!(TEMPLATE_O, seed_idx),
-            'X' | 'x' => template!(TEMPLATE_X, seed_idx),
-            _ => {
-                panic!("Invalid template: {}", template);
+            match x {
+                'V' => template!(TEMPLATE_V_UPPER, seed_idx),
+                'C' => template!(TEMPLATE_C_UPPER, seed_idx),
+                'v' => template!(TEMPLATE_V_LOWER, seed_idx),
+                'c' => template!(TEMPLATE_C_LOWER, seed_idx),
+                'A' => template!(TEMPLATE_A_UPPER, seed_idx),
+                'a' => template!(TEMPLATE_A_UPPER_LOWER, seed_idx),
+                'n' => template!(TEMPLATE_N, seed_idx),
+                'o' => template!(TEMPLATE_O, seed_idx),
+                'X' | 'x' => template!(TEMPLATE_X, seed_idx),
+                _ => {
+                    panic!("Invalid template: {}", template);
+                }
             }
-        }
 
-    }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
 
     String::from_utf8_lossy(result.as_slice()).into_owned()
@@ -515,7 +508,9 @@ fn gen_password(raw_seed: &[u8], template: String) -> String {
 
 // Lifted from: https://github.com/ticki/termion/blob/f21a5ceeed9d4c62a7556cdf268a9cd71b4c6157/examples/read.rs
 #[inline]
-fn read_password_console(public_key: &String, master_password_signature: Option<u64>) -> secstr::SecStr {
+fn read_password_console(public_key: &String,
+                         master_password_signature: Option<u64>)
+                         -> secstr::SecStr {
 
     use std::io::{Write, stdin, stdout};
 
@@ -544,7 +539,11 @@ fn read_password_console(public_key: &String, master_password_signature: Option<
         let counter = 1;
 
         let master_key = gen_master_key(MasterKeyGen::Argon2i, &master_password, public_key);
-        let template_seed = gen_template_seed(MasterKeyGen::Argon2i, master_key, &location, &login, counter);
+        let template_seed = gen_template_seed(MasterKeyGen::Argon2i,
+                                              master_key,
+                                              &location,
+                                              &login,
+                                              counter);
         let template = pick_template(template_seed.as_ref(), &vec!["nnn".to_string()]);
         let signature_str = gen_password(template_seed.as_ref(), template.clone());
 
@@ -558,7 +557,7 @@ fn read_password_console(public_key: &String, master_password_signature: Option<
         match master_password_signature {
             None => {
                 println!("NOTE: No master password signature found in JSON file.");
-            },
+            }
             Some(actual_signature) => {
 
                 let validity = if expected_signature == actual_signature {
@@ -596,38 +595,32 @@ mod tests {
 
         // master key
 
-        let expected_master_key = rusterpassword::gen_master_key(
-            master_password.clone(),
-            &public_key.clone()
-        ).unwrap();
+        let expected_master_key =
+            rusterpassword::gen_master_key(master_password.clone(), &public_key.clone()).unwrap();
 
-        let actual_master_key = super::gen_master_key(pass_type.clone(), &master_password, &public_key);
+        let actual_master_key =
+            super::gen_master_key(pass_type.clone(), &master_password, &public_key);
 
         assert_eq!(expected_master_key.unsecure(), actual_master_key.as_slice());
 
         // template seed
 
-        let expected_seed = rusterpassword::gen_site_seed(
-            &expected_master_key,
-            &location,
-            counter as u32
-        ).unwrap();
+        let expected_seed =
+            rusterpassword::gen_site_seed(&expected_master_key, &location, counter as u32).unwrap();
 
-        let actual_seed = super::gen_template_seed(pass_type, actual_master_key, &location, &login, counter);
+        let actual_seed =
+            super::gen_template_seed(pass_type, actual_master_key, &location, &login, counter);
 
         assert_eq!(expected_seed.unsecure(), actual_seed.as_ref());
 
         // password generation
 
-        let expected_pass = rusterpassword::gen_site_password(
-            &expected_seed,
-            super::TEMPLATES_MAXIMUM
-                .clone()
-                .iter()
-                .map(|x| x.as_ref())
-                .collect::<Vec<&str>>()
-                .as_slice()
-            );
+        let expected_pass = rusterpassword::gen_site_password(&expected_seed,
+                                                              super::TEMPLATES_MAXIMUM.clone()
+                                                                  .iter()
+                                                                  .map(|x| x.as_ref())
+                                                                  .collect::<Vec<&str>>()
+                                                                  .as_slice());
 
         let template = super::pick_template(actual_seed.as_ref(), &super::TEMPLATES_MAXIMUM);
         let actual_pass = super::gen_password(actual_seed.as_ref(), template);
